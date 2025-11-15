@@ -1,0 +1,6 @@
+node_modules
+.env
+readme.md
+LICENSE
+examples/
+assets/

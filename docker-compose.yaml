@@ -1,0 +1,55 @@
+services:
+  botregister:
+    build:
+      context: .
+      dockerfile: dockerfile.register
+    container_name: bot
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    networks:
+      - cloudnet
+  development-bot:
+    build:
+      context: .
+      dockerfile: dockerfile.dev
+    container_name: devbot
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    networks:
+      - cloudnet
+
+  bot-commands:
+    build:
+      context: .
+      dockerfile: dockerfile.commands
+    container_name: commands
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    networks:
+      - cloudnet  
+  Tunnel:
+    image:
+      ngrok/ngrok:latest
+    container_name: ngrok
+    command: ["http", "devbot:3000", "--log=stdout"]  
+    ports:
+      - "4040:4040"
+    env_file:
+      - .env
+    environment:
+      - NGROK_AUTHTOKEN={NGROK_AUTHTOKEN}
+      
+    networks:
+      - cloudnet
+
+      
+
+networks: 
+  cloudnet:
+    driver: bridge
