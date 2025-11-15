@@ -1,3 +1,4 @@
+import Player from "./models/player";
 
 
 export const lifeBar = (hp, maxHp) => {
@@ -10,3 +11,19 @@ export const lifeBar = (hp, maxHp) => {
 
 }
 
+
+
+
+export async function getPlayerLife(userId) {
+  let player = await Player.findOne({ userId });
+
+  if (!player) {
+    player = await Player.create({
+      userId,
+      hp: 10,
+      maxHp: 10,
+    });
+  }
+
+  return lifeBar(player.hp, player.maxHp);
+}

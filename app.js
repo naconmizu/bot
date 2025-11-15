@@ -5,42 +5,33 @@ import {
   MessageComponentTypes,
   verifyKeyMiddleware
 } from 'discord-interactions';
+
 import 'dotenv/config';
 import express from 'express';
 import { getRandomEmoji } from './utils.js';
-import { lifeBar } from './rpg.js';
+import { getPlayerLife } from './rpg.js';
+import { connectDB } from './db.js';
 
+// Connect DB
+connectDB();
 
-// Create an express app
 const app = express();
-// Get port, or default to 3000
 const PORT = process.env.PORT || 3000;
 
-/**
- * Interactions endpoint URL where Discord will send HTTP requests
- * Parse request body and verifies incoming requests using discord-interactions package
- */
-app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async function (req, res) {
-  // Interaction id, type and data
-  const { id, type, data } = req.body;
+// Parse body
+app.use(express.json());
 
-  /**
-   * Handle verification requests
-   */
+app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async function (req, res) {
+  const { type, data, member } = req.body;
+
   if (type === InteractionType.PING) {
     return res.send({ type: InteractionResponseType.PONG });
   }
 
-  /**
-   * Handle slash command requests
-   * See https://discord.com/developers/docs/interactions/application-commands#slash-commands
-   */
   if (type === InteractionType.APPLICATION_COMMAND) {
     const { name } = data;
 
-    // "test" command
     if (name === 'test') {
-      // Send a message into the channel where command was triggered from
       return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
@@ -48,44 +39,40 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
           components: [
             {
               type: MessageComponentTypes.TEXT_DISPLAY,
-              // Fetches a random emoji to send from a helper function
               content: `hello world ${getRandomEmoji()}`
             }
           ]
         },
       });
     }
+
     if (name === 'life') {
-      // Send a message into the channel where command was triggered from
+      const userId = member.user.id;
+
+      const bar = await getPlayerLife(userId);
+
       return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
-          components:[
+          components: [
             {
-            type: MessageComponentTypes.TEXT_DISPLAY,
-            content: lifeBar(7,10)
+              type: MessageComponentTypes.TEXT_DISPLAY,
+              content: `❤️ Sua vida:\n${bar}`
             }
-            
           ]
         },
       });
     }
-    
 
-    console.error(`unknown command: ${name}`);
     return res.status(400).json({ error: 'unknown command' });
   }
 
-  console.error('unknown interaction type', type);
   return res.status(400).json({ error: 'unknown interaction type' });
 });
 
-
 app.get('/', (req, res) => {
-  res.send("foda <h1>FUNCIONA</h1>");
+  res.send("Bot rodando");
 });
-
-
 
 app.listen(PORT, () => {
   console.log('Listening on port', PORT);
