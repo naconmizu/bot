@@ -20,8 +20,9 @@ export async function getPlayerLife(userId) {
   if (!player) {
     player = await Player.create({
       userId,
-      hp: 10,
-      maxHp: 10,
+      Pokemons:[],
+      Level: 1,
+      XP: 0,
     });
   }
 
