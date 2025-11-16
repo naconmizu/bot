@@ -18,8 +18,6 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Parse body
-app.use(express.json());
 
 app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async function (req, res) {
   const { type, data, member } = req.body;
@@ -69,6 +67,10 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
 
   return res.status(400).json({ error: 'unknown interaction type' });
 });
+
+//ta aq pq da problema no endpoint de cima
+app.use(express.json());
+
 
 app.get('/', (req, res) => {
   res.send("Bot rodando");
