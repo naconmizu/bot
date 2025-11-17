@@ -25,6 +25,28 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
     return res.send({ type: InteractionResponseType.PONG });
   }
 
+  // Botões de paginação
+  if (type === InteractionType.MESSAGE_COMPONENT) {
+    const custom = data.custom_id;
+
+    if (custom.startsWith("skill_prev_") || custom.startsWith("skill_next_")) {
+      const [, dir, indexStr] = custom.split("_");
+      const pageIndex = parseInt(indexStr);
+
+      const newPage = dir === "prev" ? pageIndex - 1 : pageIndex + 1;
+
+      // limita dentro do range
+      if (newPage < 0) newPage = 0;
+      if (newPage >= pages.length) newPage = pages.length - 1;
+
+      return res.send({
+        type: InteractionResponseType.UPDATE_MESSAGE,
+        data: formatPage(newPage)
+      });
+    }
+  }
+
+
   if (type === InteractionType.APPLICATION_COMMAND) {
     const { name } = data;
 
@@ -84,7 +106,9 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
 
               // pega descrição em inglês
               const description =
-                move.flavor_text_entries.find(f => f.language.name === "en")?.flavor_text
+                move.flavor_text_entries
+                  .filter(f => f.language.name === "en")
+                  .pop()?.flavor_text
                   ?.replace(/\n|\f/g, " ") || "No description";
 
               return {
@@ -101,11 +125,11 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
           // formatar bonito pra embed
           const movesFormatted = moveDetails
             .map(m => `**${m.name.toUpperCase()}**  
-• Tipo: *${m.type}*  
-• Power: ${m.power}  
-• Accuracy: ${m.accuracy}  
-• PP: ${m.pp}  
-• Descrição: ${m.description}`)
+        • Tipo: *${m.type}*  
+        • Power: ${m.power}  
+        • Accuracy: ${m.accuracy}  
+        • PP: ${m.pp}  
+        • Descrição: ${m.description}`)
             .join("\n\n");
 
           const stats = pokemon.stats
@@ -129,7 +153,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
                     { name: "Tipos", value: types, inline: true },
                     { name: "Altura", value: `${height} m`, inline: true },
                     { name: "Peso", value: `${weight} kg`, inline: true },
-                    { name: "Skills (Moves)", value: movesFormatted },
+                    { name: "Skills (Moves)", value: movesFormatted, inline: false },
                     { name: "Stats", value: stats }
                   ],
                   footer: { text: "Pokédex — Powered by PokéAPI" }
@@ -152,6 +176,133 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
       // 4️⃣ ENCERRA a requisição Express aqui
       return;
     }
+    if (name === "skill") {
+      const options = data?.options ?? [];
+      const pokemonName = options[0]?.value?.toString().toLowerCase();
+
+      // --- reply rápido
+      res.send({
+        type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+      });
+
+      (async () => {
+        try {
+          // ---- pega dados do Pokémon
+          const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`);
+          if (!response.ok) {
+            await editOriginal(req, `Pokémon **${pokemonName}** não encontrado!`);
+            return;
+          }
+
+          const pokemon = await response.json();
+
+          // --- pega TODAS as skills
+          const moveUrls = pokemon.moves.map(m => m.move.url);
+
+          const moveDetails = await Promise.all(
+            moveUrls.map(async url => {
+              const r = await fetch(url);
+              const move = await r.json();
+
+              const description =
+                move.flavor_text_entries.find(f => f.language.name === "en")?.flavor_text
+                  ?.replace(/\n|\f/g, " ") || "No description";
+
+              return {
+                name: move.name,
+                type: move.type.name,
+                power: move.power ?? "—",
+                accuracy: move.accuracy ?? "—",
+                pp: move.pp ?? "—",
+                description
+              };
+            })
+          );
+
+          // --- monta páginas de 5 skills
+          const pageSize = 5;
+          const pages = [];
+          for (let i = 0; i < moveDetails.length; i += pageSize) {
+            pages.push(moveDetails.slice(i, i + pageSize));
+          }
+
+          // cor baseada no tipo principal
+          const mainType = pokemon.types[0].type.name;
+          const typeColors = {
+            normal: 0xA8A77A,
+            fire: 0xEE8130,
+            water: 0x6390F0,
+            electric: 0xF7D02C,
+            grass: 0x7AC74C,
+            ice: 0x96D9D6,
+            fighting: 0xC22E28,
+            poison: 0xA33EA1,
+            ground: 0xE2BF65,
+            flying: 0xA98FF3,
+            psychic: 0xF95587,
+            bug: 0xA6B91A,
+            rock: 0xB6A136,
+            ghost: 0x735797,
+            dragon: 0x6F35FC,
+            dark: 0x705746,
+            steel: 0xB7B7CE,
+            fairy: 0xD685AD
+          };
+
+          function formatPage(pageIndex) {
+            const movesText = pages[pageIndex]
+              .map(m => `**${m.name.toUpperCase()}**  
+• Tipo: *${m.type}*  
+• Power: ${m.power}  
+• Accuracy: ${m.accuracy}  
+• PP: ${m.pp}  
+• ${m.description}`)
+              .join("\n\n");
+
+            return {
+              embeds: [
+                {
+                  title: `Skills de ${pokemon.name.toUpperCase()} — Página ${pageIndex + 1}/${pages.length}`,
+                  color: typeColors[mainType] ?? 0xffffff,
+                  fields: [
+                    { name: "Golpes", value: movesText }
+                  ],
+                  footer: { text: "Pokédex — Powered by PokéAPI" }
+                }
+              ],
+              components: [
+                {
+                  type: 1,
+                  components: [
+                    {
+                      type: 2,
+                      label: "◀",
+                      style: 1,
+                      custom_id: `skill_prev_${pageIndex}`
+                    },
+                    {
+                      type: 2,
+                      label: "▶",
+                      style: 1,
+                      custom_id: `skill_next_${pageIndex}`
+                    }
+                  ]
+                }
+              ]
+            };
+          }
+
+          // envia página 1
+          await editOriginal(req, formatPage(0));
+
+        } catch (err) {
+          await editOriginal(req, "Erro ao buscar dados do Pokémon.");
+        }
+      })();
+
+      return;
+    }
+
 
 
 
@@ -175,4 +326,3 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log('Listening on port', PORT);
 });
-F

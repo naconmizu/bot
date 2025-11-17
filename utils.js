@@ -46,3 +46,13 @@ export function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
  
+
+export async function editOriginal(req, content) {
+  return fetch(`https://discord.com/api/v10/webhooks/${process.env.APP_ID}/${req.body.token}/messages/@original`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: typeof content === "string" 
+      ? JSON.stringify({ content })
+      : JSON.stringify(content)
+  });
+}
