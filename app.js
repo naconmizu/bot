@@ -73,9 +73,41 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
           const pokemon = await response.json();
 
           const types = pokemon.types.map(t => t.type.name).join(", ");
-          const abilities = pokemon.abilities
-            .map(a => `• ${a.ability.name}${a.is_hidden ? " *(Hidden)*" : ""}`)
-            .join("\n");
+          // 1) pega uma lista pequena de golpes (os primeiros 4, por exemplo)
+          const moveUrls = pokemon.moves.slice(0, 4).map(m => m.move.url);
+
+          // 2) busca cada skill na API
+          const moveDetails = await Promise.all(
+            moveUrls.map(async url => {
+              const res = await fetch(url);
+              const move = await res.json();
+
+              // pega descrição em inglês
+              const description =
+                move.flavor_text_entries.find(f => f.language.name === "en")?.flavor_text
+                  ?.replace(/\n|\f/g, " ") || "No description";
+
+              return {
+                name: move.name,
+                type: move.type.name,
+                power: move.power ?? "—",
+                accuracy: move.accuracy ?? "—",
+                pp: move.pp ?? "—",
+                description
+              };
+            })
+          );
+
+          // formatar bonito pra embed
+          const movesFormatted = moveDetails
+            .map(m => `**${m.name.toUpperCase()}**  
+• Tipo: *${m.type}*  
+• Power: ${m.power}  
+• Accuracy: ${m.accuracy}  
+• PP: ${m.pp}  
+• Descrição: ${m.description}`)
+            .join("\n\n");
+
           const stats = pokemon.stats
             .map(s => `• **${s.stat.name}:** ${s.base_stat}`)
             .join("\n");
@@ -97,7 +129,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
                     { name: "Tipos", value: types, inline: true },
                     { name: "Altura", value: `${height} m`, inline: true },
                     { name: "Peso", value: `${weight} kg`, inline: true },
-                    { name: "Habilidades", value: abilities },
+                    { name: "Skills (Moves)", value: movesFormatted },
                     { name: "Stats", value: stats }
                   ],
                   footer: { text: "Pokédex — Powered by PokéAPI" }
@@ -143,3 +175,4 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log('Listening on port', PORT);
 });
+F
