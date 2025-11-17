@@ -46,6 +46,8 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
     // shows pokemons skills
     // /skills <pokemon>
     if (name === "pokemon") {
+      const options = req.body.data?.options ?? [];
+
       const pokemonName = options[0]?.value?.toString().toLowerCase();
 
       // 1️⃣ Responder rápido (pra não dar timeout)
