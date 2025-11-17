@@ -12,16 +12,22 @@ const TEST_COMMAND = {
   contexts: [0, 1, 2],
 };
 
-const LIFE_COMMAND ={
-  name: 'life',
-  description: 'Check your life status',
-  type: 1,
-  integration_types: [0, 1],
-  contexts: [0, 1, 2],
-  
+
+const POKEMON_COMMAND = {
+  name: "pokemon",
+  description: "Mostra informações completas de um Pokémon",
+  options: [
+    {
+      name: "pokemon",
+      description: "Nome ou ID do Pokémon",
+      type: 3, // STRING
+      required: true
+    }
+  ]
 }
 
 
-const ALL_COMMANDS = [TEST_COMMAND, LIFE_COMMAND];
+
+const ALL_COMMANDS = [TEST_COMMAND, POKEMON_COMMAND];
 
 InstallGlobalCommands(process.env.APP_ID, ALL_COMMANDS);
