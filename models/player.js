@@ -5,6 +5,12 @@ const playerSchema = new mongoose.Schema({
     Pokemons: { type: Array, default: [] },
     Level: { type: Number, default: 1 },
     XP: { type: Number, default: 0 },
+    Pokeballs: { 
+        type: Object, 
+        default: {
+            "Pokébola": 5 // Começa com 5 pokébolas básicas
+        }
+    }
 })
 
 
